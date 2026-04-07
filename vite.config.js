@@ -16,7 +16,7 @@ export default defineConfig({
         },
         load(id) {
             if (id === '\0virtual:credentials.json') {
-                return 'export default { clientId: "", clientSecret: "" };';
+                return '{ "clientId": "", "clientSecret": "" }';
             }
             return null;
         }
