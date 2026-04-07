@@ -15,10 +15,9 @@ export function createFlightCard(flight, userLat, userLon) {
     const maxRadius = 20; 
     const progress = Math.max(0, Math.min(100, ((maxRadius - distance) / maxRadius) * 100));
 
-    // Logo logic (Aviasales img.wway.io)
-    const logoUrl = flight.iata 
-        ? `https://img.wway.io/pics/root/${flight.iata.toUpperCase()}@png?exar=1&rs=fit:200:200`
-        : `https://ui-avatars.com/api/?name=${encodeURIComponent(flight.airline)}&background=0ea5e9&color=fff`;
+    // Logo: use local copy of sexym0nk3y/airline-logos (public/logos/{ICAO}.png)
+    const icaoCode = flight.callsign.substring(0, 3).toUpperCase();
+    const logoUrl = `/logos/${icaoCode}.png`;
 
     const card = document.createElement('div');
     card.className = 'flight-card animate-in';

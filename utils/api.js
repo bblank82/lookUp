@@ -1,3 +1,6 @@
+import airlinesDb from './airlines.json';
+import planesDb from './planes.json';
+
 const RAPIDAPI_KEY = 'cdfa13bac2mshe9fedbfa664d624p1e89d7jsn75b95d62fae6';
 const RAPIDAPI_HOST = 'adsbexchange-com1.p.rapidapi.com';
 
@@ -33,20 +36,26 @@ export async function fetchNearbyAircraft(lat, lon, distNM) {
  */
 export function processFlightData(ac, userLat, userLon) {
     const rawCallsign = (ac.flight || ac.call || 'Unknown').trim();
-    const airline = getAirlineFromCallsign(rawCallsign);
-    const typeDesc = ac.t || 'Unknown Aircraft';
+    const icaoCode = rawCallsign.substring(0, 3).toUpperCase();
+    const airlineEntry = airlinesDb[icaoCode];
+    const airline = airlineEntry ? airlineEntry.name : 'General Aviation';
+    const iata = airlineEntry ? airlineEntry.iata : null;
+
+    const rawType = ac.t || '';
+    const friendlyType = planesDb[rawType] || rawType || 'Unknown Aircraft';
+
     return {
         icao: ac.hex,
-        iata: getIataFromIcao(rawCallsign.substring(0, 3).toUpperCase()),
+        iata,
         callsign: rawCallsign,
-        airline: airline,
+        airline,
         isGA: isGeneralAviation(rawCallsign, airline),
-        isTwin: typeDesc.toLowerCase().includes('twin') || typeDesc.toLowerCase().includes('multi'),
-        type: typeDesc,
+        isTwin: friendlyType.toLowerCase().includes('twin') || friendlyType.toLowerCase().includes('multi'),
+        type: friendlyType,
         registration: ac.r || 'N/A',
-        altitude: ac.alt_baro === 'ground' ? 0 : (ac.alt_baro || ac.alt_geom || 0), // ft
-        speed: ac.gs || 0, // knots
-        heading: ac.track || 0, // degrees
+        altitude: ac.alt_baro === 'ground' ? 0 : (ac.alt_baro || ac.alt_geom || 0),
+        speed: ac.gs || 0,
+        heading: ac.track || 0,
         lat: ac.lat,
         lon: ac.lon,
         squawk: ac.squawk || '7000',
@@ -54,60 +63,6 @@ export function processFlightData(ac, userLat, userLon) {
         emergency: ac.alert === 1,
         category: ac.category || 'A0'
     };
-}
-
-function getAirlineFromCallsign(callsign) {
-    if (!callsign || callsign === 'Unknown') return 'General Aviation';
-    const icao = callsign.substring(0, 3).toUpperCase();
-    const airlines = {
-        'AAL': 'American Airlines',
-        'UAL': 'United Airlines',
-        'DAL': 'Delta Air Lines',
-        'SWA': 'Southwest Airlines',
-        'JBU': 'JetBlue Airways',
-        'BAW': 'British Airways',
-        'DLH': 'Lufthansa',
-        'AFR': 'Air France',
-        'KLM': 'KLM Royal Dutch Airlines',
-        'FDX': 'FedEx Express',
-        'UPS': 'UPS Airlines',
-        'FFT': 'Frontier Airlines',
-        'NKS': 'Spirit Airlines',
-        'VOO': 'Trans States Airlines',
-        'ASH': 'Mesa Airlines',
-        'RPA': 'Republic Airways',
-        'SKW': 'SkyWest Airlines',
-        'ASA': 'Alaska Airlines',
-        'HAL': 'Hawaiian Airlines',
-        'WJA': 'WestJet',
-        'ACA': 'Air Canada',
-        'EJA': 'NetJets',
-        'LXJ': 'Flexjet',
-        'EDV': 'Endeavor Air',
-        'ENY': 'Envoy Air',
-        'PDT': 'Piedmont Airlines',
-        'PSA': 'PSA Airlines',
-        'QXE': 'Horizon Air',
-        'LRC': 'Avianca',
-        'AMX': 'Aeromexico',
-        'GJS': 'GoJet Airlines',
-        'CPZ': 'Compass Airlines'
-    };
-    return airlines[icao] || 'General Aviation';
-}
-
-function getIataFromIcao(icao) {
-    const mapping = {
-        'AAL': 'AA', 'UAL': 'UA', 'DAL': 'DL', 'SWA': 'WN',
-        'JBU': 'B6', 'BAW': 'BA', 'DLH': 'LH', 'AFR': 'AF',
-        'KLM': 'KL', 'FDX': 'FX', 'UPS': '5X', 'FFT': 'F9',
-        'NKS': 'NK', 'ASA': 'AS', 'HAL': 'HA', 'WJA': 'WS',
-        'ACA': 'AC', 'EJA': 'EJA', 'LXJ': 'LXJ', 'EDV': '9E',
-        'ENY': 'MQ', 'PDT': 'PT', 'PSA': 'OH', 'QXE': 'QX',
-        'VOO': 'G7', 'ASH': 'YV', 'RPA': 'YX', 'SKW': 'OO',
-        'AMX': 'AM', 'GJS': 'G7', 'CPZ': 'CP'
-    };
-    return mapping[icao] || null;
 }
 
 /**

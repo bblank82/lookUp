@@ -2,6 +2,8 @@ import maplibregl from 'maplibre-gl';
 import { fetchNearbyAircraft, processFlightData } from './utils/api.js';
 import { calculateDistance, calculateBearing, createVisibilityArc, isWithinArc } from './utils/calculations.js';
 import { createFlightCard, getPlaneIcon } from './utils/ui-renderer.js';
+import { getFlightInfo, prefetchAirportFlights } from './utils/opensky.js';
+import airportsDb from './utils/airports.json';
 
 // Configuration
 let userLocation = null;
@@ -21,6 +23,7 @@ let currentTheme = 'system';
 let refreshTimerId = null;
 let timer = 10;
 let selectedIcao = null;
+let flightTrails = new Map(); // Store [lon, lat] points for each aircraft
 const isMobile = document.body.classList.contains('mobile-mode');
 
 const STYLES = {
@@ -154,6 +157,33 @@ function setupMap() {
     map.on('load', () => {
         initArcLayer();
         updateArcOnMap();
+        map.addSource('selected-trail', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                    type: 'LineString',
+                    coordinates: []
+                }
+            }
+        });
+
+        map.addLayer({
+            id: 'selected-trail-layer',
+            type: 'line',
+            source: 'selected-trail',
+            layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+            },
+            paint: {
+                'line-color': '#0ea5e9',
+                'line-width': 3,
+                'line-opacity': 0.6,
+                'line-dasharray': [2, 1]
+            }
+        }); // No beforeId to avoid errors
     });
 
     map.on('click', (e) => {
@@ -374,6 +404,7 @@ function requestLocation() {
                 
                 updateUserMarker();
                 updateArcOnMap();
+                prefetchAirportFlights(userLocation.lat, userLocation.lon);
 
                 if (updateInterval !== 0) {
                     startDataLoop();
@@ -457,10 +488,56 @@ async function updateData(isLocalOnly = false) {
         return distA - distB;
     });
 
+    // Track position for breadcrumbs
+    filteredFlights.forEach(flight => {
+        if (!flightTrails.has(flight.icao)) {
+            flightTrails.set(flight.icao, []);
+        }
+        const trail = flightTrails.get(flight.icao);
+        
+        // Only push if position changed significantly or is first point
+        const lastPos = trail[trail.length - 1];
+        if (!lastPos || lastPos[0] !== flight.lon || lastPos[1] !== flight.lat) {
+            trail.push([flight.lon, flight.lat]);
+            if (trail.length > 60) trail.shift(); // Keep last 10 mins (at 10s refresh)
+        }
+    });
+
     renderList(filteredFlights);
     renderMarkers(filteredFlights);
     
+    // Update active trail if a flight is selected
+    if (selectedIcao) {
+        updateActiveTrail(selectedIcao);
+    }
+    
     flightCountEl.textContent = `${filteredFlights.length} Flights`;
+}
+
+/**
+ * Update the breadcrumb trail for the selected aircraft.
+ */
+function updateActiveTrail(icao) {
+    if (!map || !map.getSource('selected-trail')) return;
+    
+    const trail = flightTrails.get(icao) || [];
+    const source = map.getSource('selected-trail');
+    
+    if (trail.length < 2) {
+        source.setData({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: [] }
+        });
+        return;
+    }
+
+    source.setData({
+        type: 'Feature',
+        geometry: {
+            type: 'LineString',
+            coordinates: trail
+        }
+    });
 }
 
 /**
@@ -484,6 +561,7 @@ function renderList(flights) {
         
         card.addEventListener('click', () => {
             selectFlight(flight.icao, [flight.lon, flight.lat]);
+            enrichCardWithRoute(card, flight.callsign, flight.icao);
         });
 
         flightListContainer.appendChild(card);
@@ -492,12 +570,13 @@ function renderList(flights) {
 
 function selectFlight(icao, coords) {
     selectedIcao = icao;
-    // Map move
-    map.flyTo({
-        center: coords,
-        zoom: 12,
-        essential: true
-    });
+    
+    if (icao && coords) {
+        map.flyTo({ center: coords, zoom: 12, speed: 1.2 });
+        updateActiveTrail(icao);
+    } else {
+        updateActiveTrail(null);
+    }
     
     // UI Update
     document.querySelectorAll('.flight-card').forEach(c => {
@@ -511,6 +590,40 @@ function selectFlight(icao, coords) {
         sheet.classList.add('collapsed');
         sheet.classList.remove('expanded');
     }
+}
+
+/**
+ * Fetch origin/destination from OpenSky and update the route row on a card.
+ */
+async function enrichCardWithRoute(card, callsign, icao24) {
+    const depEl = card.querySelector('.route-point:first-child');
+    const arrEl = card.querySelector('.route-point:last-child');
+    if (!depEl || !arrEl) return;
+    depEl.textContent = '…';
+    arrEl.textContent = '…';
+
+    const info = await getFlightInfo(callsign, icao24);
+    if (!info) {
+        depEl.textContent = 'N/A';
+        arrEl.textContent = 'N/A';
+        return;
+    }
+
+    const formatAirport = (icaoCode) => {
+        if (!icaoCode) return { code: '???', title: 'Unknown' };
+        const entry = airportsDb[icaoCode];
+        const code  = (entry?.iata && entry.iata !== '\\N') ? entry.iata : icaoCode;
+        const title = entry ? `${entry.name}, ${entry.city}` : icaoCode;
+        return { code, title };
+    };
+
+    const dep = formatAirport(info.departure);
+    const arr = formatAirport(info.arrival);
+
+    depEl.textContent = dep.code;
+    depEl.title       = dep.title;
+    arrEl.textContent = arr.code;
+    arrEl.title       = arr.title;
 }
 
 /**
@@ -528,9 +641,9 @@ function renderMarkers(flights) {
 
     flights.forEach(flight => {
         if (markers[flight.icao]) {
-            // Update existing marker
+            // Update existing marker position and icon
             markers[flight.icao].setLngLat([flight.lon, flight.lat]);
-            
+            const el = markers[flight.icao].getElement();
             el.innerHTML = `
                 ${getPlaneIcon(flight.heading, flight.isGA, flight.isTwin)}
                 <div class="marker-label">${flight.callsign}</div>
