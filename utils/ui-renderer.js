@@ -72,15 +72,22 @@ export function createFlightCard(flight, userLat, userLon) {
 /**
  * Returns plane icons for the map based on whether it is GA or Commercial.
  */
-export function getPlaneIcon(heading, isGA = false) {
+export function getPlaneIcon(heading, isGA = false, isTwin = false) {
     const color = isGA ? '#f97316' : '#0ea5e9'; // Orange for GA, Blue for Commercial
     
     if (isGA) {
-        // Propeller Plane SVG (GA)
+        if (isTwin) {
+            // Twin Propeller SVG
+            return `
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${heading}deg); transition: transform 0.3s">
+                    <path d="M12 2L14 6V20L12 18L10 20V6L12 2ZM2 10H8V12H2V10ZM16 10H22V12H16L16 10ZM5 8H8V15H5V8ZM16 8H19V15H16V8Z" fill="${color}" stroke="white" stroke-width="1.5"/>
+                </svg>
+            `;
+        }
+        // Classic High-Wing Propeller Plane SVG (GA)
         return `
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${heading}deg); transition: transform 0.3s">
-                <path d="M12 2L13 9L22 12L13 15L12 22L11 15L2 12L11 9L12 2Z" fill="${color}" stroke="white" stroke-width="1"/>
-                <circle cx="12" cy="12" r="1.5" fill="white"/>
+                <path d="M12 2L13 8H22V10H13L12.5 19H17V21H7V19H11.5L11 8H2V10H11L12 2Z" fill="${color}" stroke="white" stroke-width="1.5"/>
             </svg>
         `;
     }

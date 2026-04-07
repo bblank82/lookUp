@@ -21,6 +21,7 @@ let currentTheme = 'system';
 let refreshTimerId = null;
 let timer = 10;
 let selectedIcao = null;
+const isMobile = document.body.classList.contains('mobile-mode');
 
 const STYLES = {
     light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
@@ -322,6 +323,22 @@ function setupEventListeners() {
             updateTimerEl.textContent = `Refreshing in ${timer}s`;
         }
     });
+
+    // Mobile Sheet Toggle
+    if (isMobile) {
+        const sheet = document.getElementById('sidebar');
+        const handle = document.querySelector('.sheet-handle');
+        const header = document.querySelector('.sidebar-header');
+
+        [handle, header].forEach(el => {
+            el?.addEventListener('click', (e) => {
+                // Don't toggle if clicking a button inside header
+                if (e.target.closest('button') || e.target.closest('select')) return;
+                sheet.classList.toggle('collapsed');
+                sheet.classList.toggle('expanded');
+            });
+        });
+    }
 }
 
 function updateAltLabels() {
@@ -487,6 +504,13 @@ function selectFlight(icao, coords) {
         c.classList.toggle('active-selection', c.dataset.icao === icao);
         if (c.dataset.icao === icao) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
+
+    // Mobile specific: Collapse sheet on selection
+    if (isMobile) {
+        const sheet = document.getElementById('sidebar');
+        sheet.classList.add('collapsed');
+        sheet.classList.remove('expanded');
+    }
 }
 
 /**
@@ -507,9 +531,8 @@ function renderMarkers(flights) {
             // Update existing marker
             markers[flight.icao].setLngLat([flight.lon, flight.lat]);
             
-            const el = markers[flight.icao].getElement();
             el.innerHTML = `
-                ${getPlaneIcon(flight.heading, flight.isGA)}
+                ${getPlaneIcon(flight.heading, flight.isGA, flight.isTwin)}
                 <div class="marker-label">${flight.callsign}</div>
             `;
         } else {
@@ -517,7 +540,7 @@ function renderMarkers(flights) {
             const el = document.createElement('div');
             el.className = 'plane-marker';
             el.innerHTML = `
-                ${getPlaneIcon(flight.heading, flight.isGA)}
+                ${getPlaneIcon(flight.heading, flight.isGA, flight.isTwin)}
                 <div class="marker-label">${flight.callsign}</div>
             `;
             

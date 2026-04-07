@@ -9,6 +9,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.css" rel="stylesheet" />
     <link rel="stylesheet" href="/style.css">
+    <script>
+        // Redirect to mobile prototype if mobile device detected
+        if (window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            window.location.href = '/mobile.html';
+        }
+    </script>
 </head>
 <body>
     <div id="app">

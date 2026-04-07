@@ -34,13 +34,15 @@ export async function fetchNearbyAircraft(lat, lon, distNM) {
 export function processFlightData(ac, userLat, userLon) {
     const rawCallsign = (ac.flight || ac.call || 'Unknown').trim();
     const airline = getAirlineFromCallsign(rawCallsign);
+    const typeDesc = ac.t || 'Unknown Aircraft';
     return {
         icao: ac.hex,
         iata: getIataFromIcao(rawCallsign.substring(0, 3).toUpperCase()),
         callsign: rawCallsign,
         airline: airline,
         isGA: isGeneralAviation(rawCallsign, airline),
-        type: ac.t || 'Unknown Aircraft',
+        isTwin: typeDesc.toLowerCase().includes('twin') || typeDesc.toLowerCase().includes('multi'),
+        type: typeDesc,
         registration: ac.r || 'N/A',
         altitude: ac.alt_baro === 'ground' ? 0 : (ac.alt_baro || ac.alt_geom || 0), // ft
         speed: ac.gs || 0, // knots

@@ -1,0 +1,89 @@
+ archaeology-checked
+/* Mobile Prototype Styles - Sandboxed */
+
+body.mobile-mode {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+body.mobile-mode #app {
+    flex-direction: column;
+}
+
+body.mobile-mode #map-container {
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Bottom Sheet Styling */
+body.mobile-mode .bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 85vh; /* Standard expanded height */
+    z-index: 1000;
+    background: var(--bg-sidebar);
+    backdrop-filter: blur(20px);
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Handle */
+.sheet-handle {
+    width: 40px;
+    height: 5px;
+    background: var(--border);
+    border-radius: 3px;
+    margin: 12px auto;
+    flex-shrink: 0;
+}
+
+/* Header Adjustments */
+body.mobile-mode .sidebar-header {
+    background: transparent;
+    border-bottom: none;
+    position: static;
+}
+
+body.mobile-mode .header-filters {
+    padding: 0 20px 10px;
+}
+
+/* States */
+body.mobile-mode .bottom-sheet.collapsed {
+    transform: translateY(calc(85vh - 150px)); /* Only header visible */
+}
+
+body.mobile-mode .bottom-sheet.expanded {
+    transform: translateY(0);
+}
+
+/* Map Controls adjustment for mobile */
+body.mobile-mode .maplibregl-ctrl-top-right {
+    top: 20px;
+}
+
+/* Hide desktop specific elements if any */
+body.mobile-mode footer.sidebar-footer {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* Smooth Scrolling for the list */
+body.mobile-mode .flight-list {
+    padding-bottom: 40px;
+}
+
+/* Card details adjustment for small screens */
+@media (max-width: 380px) {
+    .card-details {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+}
