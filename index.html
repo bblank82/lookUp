@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>lookUP! | Aviation Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Map Container -->
+        <main id="map-container">
+            <div id="map"></div>
+            
+            <!-- Settings Button -->
+            <button id="settings-btn" class="settings-btn glass" aria-label="Open Settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+
+            <div id="location-prompt" class="location-prompt hidden">
+                <div class="prompt-card glass animate-in">
+                    <h2>Permission Required</h2>
+                    <p>Click "Allow" to see planes relative to your position.</p>
+                    <button id="retry-location" class="primary-btn">Detect My Location</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar shadow-xl">
+            <header class="sidebar-header glass">
+                <div class="logo-container">
+                    <h1 class="logo">lookUP<span class="accent">!</span></h1>
+                    <p class="tagline">Aviation Spotter Buddy</p>
+                </div>
+                <div class="controls">
+                    <div class="control-group">
+                    <label for="radius-select">Radius (NM)</label>
+                    <select id="radius-select" class="radius-select">
+                        <option value="5">5 NM</option>
+                        <option value="10">10 NM</option>
+                        <option value="20" selected>20 NM</option>
+                        <option value="50">50 NM</option>
+                        <option value="100">100 NM</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label class="toggle-control">
+                        <input type="checkbox" id="hide-ground">
+                        <span class="toggle-label">Hide Ground Traffic</span>
+                    </label>
+                </div>
+
+                <div class="control-group altitude-filter">
+                    <div class="filter-header">
+                        <label>Altitude (FT)</label>
+                        <span id="alt-values" class="filter-values">1 - 4000</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="min-alt" min="0" max="60000" step="1000" value="0" class="alt-slider">
+                        <input type="range" id="max-alt" min="0" max="60000" step="1000" value="4000" class="alt-slider">
+                    </div>
+                </div>
+
+                <div class="control-group bearing-filter">
+                    <div class="filter-header">
+                        <label>Visibility Arc (Bearing)</label>
+                        <span id="bearing-values" class="filter-values">0° - 360°</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="min-bearing" min="0" max="360" step="1" value="0" class="alt-slider">
+                        <input type="range" id="max-bearing" min="0" max="360" step="1" value="360" class="alt-slider">
+                    </div>
+                    <label class="toggle-control mini">
+                        <input type="checkbox" id="show-arc">
+                        <span class="toggle-label">Show Arc on Map</span>
+                    </label>
+                </div>
+            </div>
+            </header>
+
+            <div id="flight-list" class="flight-list">
+                <!-- Flight cards will be injected here -->
+                <div class="list-placeholder">
+                    <div class="spinner"></div>
+                    <p>Scanning the skies...</p>
+                </div>
+            </div>
+            
+            <footer class="sidebar-footer glass">
+                <div id="status-bar" class="status-bar">
+                    <span id="update-timer">Refreshing in 10s</span>
+                    <span id="flight-count">0 Flights</span>
+                </div>
+            </footer>
+        </aside>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal hidden">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content glass animate-in">
+                <div class="modal-header">
+                    <h2>Settings</h2>
+                    <button id="close-settings" class="close-btn">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-section">
+                        <h3>Theme</h3>
+                        <div class="theme-selector">
+                            <button class="theme-btn active" data-theme="system">System</button>
+                            <button class="theme-btn" data-theme="light">Light</button>
+                            <button class="theme-btn" data-theme="dark">Dark</button>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Refresh Rate</h3>
+                        <p class="section-desc">How often the flight list updates.</p>
+                        <select id="refresh-rate" class="radius-select">
+                            <option value="0">Pause</option>
+                            <option value="5000">5s</option>
+                            <option value="10000" selected>10s</option>
+                            <option value="30000">30s</option>
+                            <option value="60000">60s</option>
+                        </select>
+                    </div>
+                    <div class="modal-section">
+                        <h3>About lookUP!</h3>
+                        <p class="version-text">v1.2.0 • Spotter Edition</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
