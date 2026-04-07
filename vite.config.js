@@ -1,7 +1,26 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import fs from 'fs';
 
 export default defineConfig({
+    plugins: [{
+        name: 'mock-credentials',
+        resolveId(source) {
+            if (source.includes('credentials.json')) {
+                const absolutePath = resolve(__dirname, 'credentials.json');
+                if (!fs.existsSync(absolutePath)) {
+                    return '\0virtual:credentials.json';
+                }
+            }
+            return null;
+        },
+        load(id) {
+            if (id === '\0virtual:credentials.json') {
+                return 'export default { clientId: "", clientSecret: "" };';
+            }
+            return null;
+        }
+    }],
     build: {
         rollupOptions: {
             input: {
