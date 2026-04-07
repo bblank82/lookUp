@@ -1,23 +1,26 @@
 import maplibregl from 'maplibre-gl';
 import { fetchNearbyAircraft, processFlightData } from './utils/api.js';
 import { calculateDistance, calculateBearing, createVisibilityArc, isWithinArc } from './utils/calculations.js';
-import { createFlightCard } from './utils/ui-renderer.js';
+import { createFlightCard, getPlaneIcon } from './utils/ui-renderer.js';
 
 // Configuration
 let userLocation = null;
+let actualLocation = null; // Store GPS location
+let manualMode = false;
 let map = null;
+let userMarker = null;
 let markers = {};
 let currentRadius = 20; // NM
 let minAltitude = 0; 
 let maxAltitude = 40000;
 let minBearing = 0;
 let maxBearing = 360;
-let showArc = false;
 let updateInterval = 10000; // default 10s
 let hideGround = false;
 let currentTheme = 'system';
 let refreshTimerId = null;
 let timer = 10;
+let selectedIcao = null;
 
 const STYLES = {
     light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
@@ -33,8 +36,8 @@ const altValuesEl = document.getElementById('alt-values');
 const minBearingInput = document.getElementById('min-bearing');
 const maxBearingInput = document.getElementById('max-bearing');
 const bearingValuesEl = document.getElementById('bearing-values');
-const showArcInput = document.getElementById('show-arc');
 const hideGroundInput = document.getElementById('hide-ground');
+const positionBtn = document.getElementById('position-btn');
 const settingsBtn = document.getElementById('settings-btn');
 const settingsModal = document.getElementById('settings-modal');
 const closeSettingsBtn = document.getElementById('close-settings');
@@ -73,10 +76,13 @@ function loadSettings() {
         maxAltitude = settings.maxAlt ?? 40000;
         minBearing = settings.minBearing ?? 0;
         maxBearing = settings.maxBearing ?? 360;
-        showArc = settings.showArc || false;
         updateInterval = settings.interval ?? 10000;
         hideGround = settings.hideGround || false;
         currentTheme = settings.theme || 'system';
+        manualMode = settings.manualMode || false;
+        if (manualMode && settings.manualCoords) {
+            userLocation = settings.manualCoords;
+        }
         
         // Update UI elements
         radiusSelect.value = currentRadius;
@@ -84,9 +90,9 @@ function loadSettings() {
         maxAltInput.value = maxAltitude;
         minBearingInput.value = minBearing;
         maxBearingInput.value = maxBearing;
-        showArcInput.checked = showArc;
         refreshRateSelect.value = updateInterval;
         hideGroundInput.checked = hideGround;
+        if (positionBtn) positionBtn.classList.toggle('active', manualMode);
         
         themeBtns.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.theme === currentTheme);
@@ -107,10 +113,11 @@ function saveSettings() {
         maxAlt: maxAltitude,
         minBearing,
         maxBearing,
-        showArc,
         interval: updateInterval,
-        hideGround: hideGround,
-        theme: currentTheme
+        hideGround,
+        theme: currentTheme,
+        manualMode,
+        manualCoords: manualMode ? userLocation : null
     };
     localStorage.setItem('lookup_settings', JSON.stringify(settings));
 }
@@ -146,6 +153,16 @@ function setupMap() {
     map.on('load', () => {
         initArcLayer();
         updateArcOnMap();
+    });
+
+    map.on('click', (e) => {
+        if (manualMode) {
+            userLocation = { lat: e.lngLat.lat, lon: e.lngLat.lng };
+            updateUserMarker();
+            updateArcOnMap();
+            saveSettings();
+            updateData();
+        }
     });
 }
 
@@ -186,7 +203,11 @@ function initArcLayer() {
 function updateArcOnMap() {
     if (!map || !map.getSource('visibility-arc') || !userLocation) return;
 
-    if (!showArc) {
+    // Auto-show arc if range is not 360
+    const bearingDiff = Math.abs(maxBearing - minBearing);
+    const isFullCircle = bearingDiff >= 360 || bearingDiff === 0;
+
+    if (isFullCircle) {
         map.getSource('visibility-arc').setData({ type: 'FeatureCollection', features: [] });
         return;
     }
@@ -235,16 +256,26 @@ function setupEventListeners() {
         });
     });
 
-    showArcInput.addEventListener('change', (e) => {
-        showArc = e.target.checked;
-        saveSettings();
-        updateArcOnMap();
-    });
-
     hideGroundInput.addEventListener('change', (e) => {
         hideGround = e.target.checked;
         saveSettings();
         updateData(true);
+    });
+
+    // Manual Position Toggle
+    positionBtn?.addEventListener('click', () => {
+        manualMode = !manualMode;
+        positionBtn.classList.toggle('active', manualMode);
+        document.getElementById('map').classList.toggle('map-manual-mode', manualMode);
+        
+        if (!manualMode && actualLocation) {
+            // Revert to actual GPS
+            userLocation = actualLocation;
+            updateUserMarker();
+            updateArcOnMap();
+            updateData();
+        }
+        saveSettings();
     });
 
     settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
@@ -276,6 +307,21 @@ function setupEventListeners() {
     retryLocationBtn.addEventListener('click', () => {
         requestLocation();
     });
+
+    document.getElementById('force-refresh')?.addEventListener('click', () => {
+        // Immediate UI feedback
+        const btn = document.getElementById('force-refresh');
+        btn.classList.add('spinning');
+        setTimeout(() => btn.classList.remove('spinning'), 500);
+
+        updateData();
+        
+        // Reset timer to full interval if not paused
+        if (updateInterval !== 0) {
+            timer = updateInterval / 1000;
+            updateTimerEl.textContent = `Refreshing in ${timer}s`;
+        }
+    });
 }
 
 function updateAltLabels() {
@@ -298,18 +344,18 @@ function requestLocation() {
         locationPrompt.classList.add('hidden');
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                userLocation = {
+                actualLocation = {
                     lat: position.coords.latitude,
                     lon: position.coords.longitude
                 };
+                if (!manualMode) {
+                    userLocation = actualLocation;
+                }
+                
                 map.setCenter([userLocation.lon, userLocation.lat]);
                 map.setZoom(10);
                 
-                // Add user marker
-                new maplibregl.Marker({ color: "#f97316" })
-                    .setLngLat([userLocation.lon, userLocation.lat])
-                    .addTo(map);
-
+                updateUserMarker();
                 updateArcOnMap();
 
                 if (updateInterval !== 0) {
@@ -328,6 +374,13 @@ function requestLocation() {
     } else {
         alert("Geolocation is not supported by your browser.");
     }
+}
+
+function updateUserMarker() {
+    if (userMarker) userMarker.remove();
+    userMarker = new maplibregl.Marker({ color: "#f97316" })
+        .setLngLat([userLocation.lon, userLocation.lat])
+        .addTo(map);
 }
 
 /**
@@ -410,21 +463,29 @@ function renderList(flights) {
 
     flights.forEach(flight => {
         const card = createFlightCard(flight, userLocation.lat, userLocation.lon);
+        if (selectedIcao === flight.icao) card.classList.add('active-selection');
         
         card.addEventListener('click', () => {
-            // Zoom to flight
-            map.flyTo({
-                center: [flight.lon, flight.lat],
-                zoom: 12,
-                essential: true
-            });
-            
-            // Highlight card
-            document.querySelectorAll('.flight-card').forEach(c => c.classList.remove('active'));
-            card.classList.add('active');
+            selectFlight(flight.icao, [flight.lon, flight.lat]);
         });
 
         flightListContainer.appendChild(card);
+    });
+}
+
+function selectFlight(icao, coords) {
+    selectedIcao = icao;
+    // Map move
+    map.flyTo({
+        center: coords,
+        zoom: 12,
+        essential: true
+    });
+    
+    // UI Update
+    document.querySelectorAll('.flight-card').forEach(c => {
+        c.classList.toggle('active-selection', c.dataset.icao === icao);
+        if (c.dataset.icao === icao) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 }
 
@@ -447,16 +508,17 @@ function renderMarkers(flights) {
             markers[flight.icao].setLngLat([flight.lon, flight.lat]);
             
             const el = markers[flight.icao].getElement();
-            const svg = el.querySelector('svg');
-            if (svg) svg.style.transform = `rotate(${flight.heading}deg)`;
+            el.innerHTML = `
+                ${getPlaneIcon(flight.heading, flight.isGA)}
+                <div class="marker-label">${flight.callsign}</div>
+            `;
         } else {
             // Create new marker DOM element
             const el = document.createElement('div');
             el.className = 'plane-marker';
             el.innerHTML = `
-                <svg width="40" height="40" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${flight.heading}deg); transition: transform 0.5s ease-out">
-                    <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
-                </svg>
+                ${getPlaneIcon(flight.heading, flight.isGA)}
+                <div class="marker-label">${flight.callsign}</div>
             `;
             
             const marker = new maplibregl.Marker({ element: el })
@@ -464,6 +526,12 @@ function renderMarkers(flights) {
                 .setPopup(new maplibregl.Popup({ offset: 25 })
                     .setHTML(`<strong>${flight.callsign}</strong><br>${flight.airline}<br>${flight.type}<br>${flight.altitude} ft`))
                 .addTo(map);
+            
+            el.style.cursor = 'pointer';
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectFlight(flight.icao, [flight.lon, flight.lat]);
+            });
             
             markers[flight.icao] = marker;
         }

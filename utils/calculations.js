@@ -90,6 +90,9 @@ export function createVisibilityArc(center, radiusNM, startBearing, endBearing) 
  * Checks if a bearing is within a min/max range, including across 0°.
  */
 export function isWithinArc(bearing, min, max) {
+    // If the difference is 360 or more, it's a full circle
+    if (Math.abs(max - min) >= 360) return true;
+
     const b = normalizeAngle(bearing);
     const nMin = normalizeAngle(min);
     const nMax = normalizeAngle(max);

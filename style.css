@@ -452,7 +452,35 @@ body {
 .refresh-control {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+.icon-btn-tiny {
+  background: none;
+  border: none;
+  padding: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.icon-btn-tiny:hover {
+  background: var(--border);
+  color: var(--primary);
+  transform: rotate(15deg);
+}
+
+.icon-btn-tiny svg {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-btn-tiny.spinning svg {
+  animation: rotate 0.5s linear;
 }
 
 .refresh-select {
@@ -807,4 +835,163 @@ html.light :root {
 
 .toggle-control.mini input:checked::before {
   transform: translateX(16px);
+}
+
+/* Sidebar Header Layout */
+.sidebar-header {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 !important; /* Managed by tiers */
+  background: var(--bg-sidebar);
+  backdrop-filter: var(--glass);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 10px;
+}
+
+.header-filters {
+  padding: 0 24px 20px;
+}
+
+.logo-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-area h1 {
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  margin-bottom: 0px;
+  line-height: 1;
+}
+
+.map-controls {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.settings-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-main);
+}
+
+.settings-btn:hover {
+  background: var(--bg-sidebar);
+  transform: translateY(-2px);
+}
+
+.settings-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.settings-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Flight List Scroll Adjustment */
+.flight-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+/* Airline Logos & Info Tidying */
+.flight-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.flight-number {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.airline-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.airline-logo-container {
+  width: 44px;
+  height: 44px;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  margin-right: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.airline-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+}
+
+/* Progress Bar (Hidden as requested) */
+.progress-status, .progress-container {
+  display: none !important;
+}
+
+/* Map Labels */
+.marker-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 4px;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Bidirectional Selection */
+.flight-card.active-selection {
+  border: 2px solid var(--primary) !important;
+  background: rgba(14, 165, 233, 0.1) !important;
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.2) !important;
+}
+
+.light .flight-card.active-selection {
+  background: rgba(14, 165, 233, 0.05) !important;
 }
